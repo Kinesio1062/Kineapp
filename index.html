@@ -1,0 +1,1112 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#1e293b">
+    KineApp - Evaluación Bilateral con Fotos</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; -webkit-tap-highlight-color: transparent; }
+    body { background: #0f172a; color: #f8fafc; padding-bottom: 70px; }
+    
+    .nav-tabs { display: flex; background: #1e293b; border-bottom: 2px solid #334155; position: sticky; top: 0; z-index: 100; }
+    .tab-btn { flex: 1; padding: 12px 2px; border: none; background: transparent; color: #94a3b8; font-weight: bold; font-size: 0.75rem; cursor: pointer; text-align: center; }
+    .tab-btn.active { color: #38bdf8; border-bottom: 3px solid #38bdf8; background: #1e293b; }
+    
+    .section-view { display: none; padding: 12px; }
+    .section-view.active { display: block; }
+    
+    .card { background: #1e293b; border: 1px solid #334155; padding: 12px; border-radius: 8px; margin-bottom: 12px; }
+    input[type="file"], input[type="text"] { width: 100%; color: #f8fafc; font-size: 0.85rem; margin-top: 6px; }
+    input[type="text"] { background: #0f172a; border: 1px solid #334155; padding: 8px; border-radius: 6px; }
+    
+    .pie-selector { display: flex; gap: 8px; margin-bottom: 10px; }
+    .btn-pie { flex: 1; padding: 10px 0; border: 2px solid #334155; border-radius: 8px; background: #0f172a; color: #cbd5e1; font-weight: bold; font-size: 0.85rem; cursor: pointer; }
+    .btn-pie.active { border-color: #38bdf8; background: #0369a1; color: white; }
+
+    .subtabs { display: flex; gap: 5px; margin-bottom: 10px; }
+    .subtab-btn { flex: 1; padding: 8px 2px; background: #0f172a; border: 1px solid #334155; border-radius: 6px; color: #94a3b8; font-size: 0.72rem; font-weight: bold; cursor: pointer; text-align: center; }
+    .subtab-btn.active { background: #0284c7; color: white; border-color: #38bdf8; }
+    .subtab-btn.ready { border-bottom: 3px solid #4ade80; }
+
+    .canvas-box { position: relative; width: 100%; background: #000; border-radius: 8px; overflow: hidden; margin-bottom: 12px; touch-action: none; min-height: 240px; }
+    canvas { display: block; width: 100%; }
+    .empty-msg { color: #64748b; font-size: 0.85rem; text-align: center; position: absolute; top: 45%; width: 100%; pointer-events: none; }
+
+    .loupe {
+      position: absolute;
+      width: 130px;
+      height: 130px;
+      border: 3px solid #38bdf8;
+      border-radius: 50%;
+      pointer-events: none;
+      display: none;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.8);
+      background: #000;
+      z-index: 99;
+    }
+    
+    .destaque { color: #4ade80; font-weight: bold; }
+    .btn { background: #0284c7; color: white; border: none; padding: 10px; border-radius: 6px; width: 100%; font-weight: bold; margin-top: 8px; cursor: pointer; }
+    .btn-secondary { background: #475569; }
+    .btn-pdf { background: #10b981; font-size: 1rem; padding: 12px; }
+
+    .tabla-comparativa { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 0.8rem; }
+    .tabla-comparativa th, .tabla-comparativa td { padding: 6px 8px; border: 1px solid #334155; text-align: center; }
+    .tabla-comparativa th { background: #0f172a; color: #94a3b8; font-weight: bold; }
+    .col-izq { color: #38bdf8; font-weight: bold; }
+    .col-der { color: #4ade80; font-weight: bold; }
+
+    .fpi-card { background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 10px; margin-bottom: 10px; }
+    .btn-group { display: flex; gap: 6px; margin-top: 6px; }
+    .score-btn { flex: 1; padding: 8px 0; border: 1px solid #475569; border-radius: 6px; background: #0f172a; color: #cbd5e1; font-weight: bold; }
+    .score-btn.selected { background: #38bdf8; color: #0f172a; border-color: #38bdf8; }
+    .score-total-bar { position: sticky; bottom: 10px; background: #0284c7; color: white; border-radius: 8px; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; }
+  </style>
+</head>
+<body>
+
+  <div class="nav-tabs">
+    <button class="tab-btn active" data-tab="tab-postural">Fotogrametría (8)</button>
+    <button class="tab-btn" data-tab="tab-huella">Hernández Corvo</button>
+    <button class="tab-btn" data-tab="tab-fpi">FPI-6 Index</button>
+    <button class="tab-btn" data-tab="tab-pdf" style="color:#4ade80;">Reporte PDF</button>
+  </div>
+
+  <!-- PESTAÑA 1: FOTOGRAMETRÍA (8 VISTAS) -->
+  <div id="tab-postural" class="section-view active">
+    <div class="pie-selector">
+      <button class="btn-pie active" id="btnPieDer">PIE DERECHO</button>
+      <button class="btn-pie" id="btnPieIzq">PIE IZQUIERDO</button>
+    </div>
+
+    <div class="subtabs">
+      <button class="subtab-btn active" data-vista="posterior">Posterior</button>
+      <button class="subtab-btn" data-vista="medial">Medial</button>
+      <button class="subtab-btn" data-vista="lateral">Lateral</button>
+      <button class="subtab-btn" data-vista="anterior">Anterior</button>
+    </div>
+
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <label><b id="txtTituloVista">Pie Derecho - Vista Posterior</b></label>
+        <span id="txtBadgeVista" style="font-size:0.75rem; color:#94a3b8;">Sin foto</span>
+      </div>
+      <input type="file" id="filePostural" accept="image/*">
+      <p id="txtGuiaPostural" style="font-size:0.8rem; color:#94a3b8; margin-top:6px;">
+        Cargá la foto para esta vista anatómica.
+      </p>
+    </div>
+
+    <div class="canvas-box" id="boxPostural">
+      <div id="msgVacioPostural" class="empty-msg">Cargá una foto para comenzar</div>
+      <canvas id="cvPostural"></canvas>
+      <canvas id="lupaPostural" class="loupe" width="130" height="130"></canvas>
+    </div>
+
+    <div class="card" id="panelResPostural" style="display:none;">
+      <p style="font-size:1.1rem;">Ángulo Vértice: <span id="valGradosP" class="destaque">0°</span></p>
+      <p style="font-size:0.8rem; color:#94a3b8; margin-top:2px;">Suplementario: <span id="valSuplP" class="destaque">0°</span></p>
+      <button class="btn btn-secondary" id="btnBorrarPuntosP">Limpiar Puntos de esta Vista</button>
+    </div>
+
+    <div class="card">
+      <b style="font-size:0.85rem; color:#e2e8f0;">Comparativa Angular Bilateral:</b>
+      <table class="tabla-comparativa">
+        <thead>
+          <tr>
+            <th>Vista Anatómica</th>
+            <th class="col-der">Derecho</th>
+            <th class="col-izq">Izquierdo</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Posterior (Aquiles/Calcáneo)</td>
+            <td id="res-der-posterior" class="col-der">-</td>
+            <td id="res-izq-posterior" class="col-izq">-</td>
+          </tr>
+          <tr>
+            <td>Medial (Arco Longitudinal)</td>
+            <td id="res-der-medial" class="col-der">-</td>
+            <td id="res-izq-medial" class="col-izq">-</td>
+          </tr>
+          <tr>
+            <td>Lateral (Borde Externo)</td>
+            <td id="res-der-lateral" class="col-der">-</td>
+            <td id="res-izq-lateral" class="col-izq">-</td>
+          </tr>
+          <tr>
+            <td>Anterior (Antepié/Dedos)</td>
+            <td id="res-der-anterior" class="col-der">-</td>
+            <td id="res-izq-anterior" class="col-izq">-</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- PESTAÑA 2: HERNÁNDEZ CORVO BILATERAL -->
+  <div id="tab-huella" class="section-view">
+    <div class="pie-selector">
+      <button class="btn-pie active" id="btnHCDer">PLANTIGRAFÍA DER.</button>
+      <button class="btn-pie" id="btnHCIzq">PLANTIGRAFÍA IZQ.</button>
+    </div>
+
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <label><b id="txtTituloHC">Plantigrafía Pie Derecho</b></label>
+        <span id="txtBadgeHC" style="font-size:0.75rem; color:#94a3b8;">Sin foto</span>
+      </div>
+      <input type="file" id="fileHuella" accept="image/*">
+      <p id="txtGuiaHuella" style="font-size:0.8rem; color:#94a3b8; margin-top:6px;">Cargá la huella para marcar.</p>
+    </div>
+
+    <div class="canvas-box" id="boxHuella">
+      <div id="msgVacioHuella" class="empty-msg">Cargá una foto de la huella</div>
+      <canvas id="cvHuella"></canvas>
+      <canvas id="lupaHuella" class="loupe" width="130" height="130"></canvas>
+    </div>
+
+    <div class="card" id="panelResHuella" style="display:none;">
+      <p style="font-size:0.85rem; color:#94a3b8;">X: <span id="valX" class="destaque">0 px</span> | Y: <span id="valY" class="destaque">0 px</span></p>
+      <p style="font-size:1.1rem; margin:4px 0;">%X: <span id="valPorc" class="destaque">0%</span></p>
+      <p>Diagnóstico: <span id="valDiag" class="destaque" style="color:#fbbf24;">-</span></p>
+      <button class="btn btn-secondary" id="btnBorrarHuella">Limpiar Puntos</button>
+    </div>
+
+    <div class="card">
+      <b style="font-size:0.85rem; color:#e2e8f0;">Resumen Plantigrafía:</b>
+      <table class="tabla-comparativa">
+        <thead>
+          <tr>
+            <th>Parámetro</th>
+            <th class="col-der">Derecho</th>
+            <th class="col-izq">Izquierdo</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>%X Calculado</td>
+            <td id="resHC-der-porc" class="col-der">-</td>
+            <td id="resHC-izq-porc" class="col-izq">-</td>
+          </tr>
+          <tr>
+            <td>Diagnóstico</td>
+            <td id="resHC-der-diag" class="col-der">-</td>
+            <td id="resHC-izq-diag" class="col-izq">-</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- PESTAÑA 3: FPI-6 BILATERAL -->
+  <div id="tab-fpi" class="section-view">
+    <div class="pie-selector">
+      <button class="btn-pie active" id="btnFPIDer">FPI-6 DERECHO</button>
+      <button class="btn-pie" id="btnFPIIzq">FPI-6 IZQUIERDO</button>
+    </div>
+
+    <div id="contenedorFPI"></div>
+
+    <div class="score-total-bar">
+      <div>
+        <div style="font-size:0.75rem; opacity:0.9;" id="txtTotalPieFPI">PUNTAJE DERECHO</div>
+        <div id="fpiDiag" style="font-weight:bold; font-size:0.95rem;">Pie Neutro</div>
+      </div>
+      <div id="fpiTotal" style="font-size:1.8rem; font-weight:bold;">0</div>
+    </div>
+  </div>
+
+  <!-- PESTAÑA 4: REPORTE PDF -->
+  <div id="tab-pdf" class="section-view">
+    <div class="card">
+      <label><b>Nombre del Paciente:</b></label>
+      <input type="text" id="pacNombre" placeholder="Ej: Juan Pérez">
+      <label style="margin-top:10px; display:block;"><b>Observaciones Clínicas / Indicaciones:</b></label>
+      <input type="text" id="pacObs" placeholder="Ej: Confección de plantilla ortopédica...">
+      <button class="btn btn-pdf" id="btnDescargarPDF" style="margin-top:16px;">Descargar Informe Completo con Imágenes</button>
+    </div>
+  </div>
+
+  <script>
+    // --- NAVEGACIÓN ---
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.section-view').forEach(s => s.classList.remove('active'));
+
+        btn.classList.add('active');
+        const targetId = btn.getAttribute('data-tab');
+        document.getElementById(targetId).classList.add('active');
+
+        if (targetId === 'tab-postural') dibujarPostural();
+        if (targetId === 'tab-huella') redibujarHuella();
+      });
+    });
+
+    // --- LUPA MÉDICA ---
+    function dibujarLupaCanvas(cvLupa, imgFuente, xOrig, yOrig, wrapBox, escX, escY) {
+      const ctxL = cvLupa.getContext('2d');
+      const size = 130;
+      cvLupa.style.display = 'block';
+
+      const screenX = xOrig / escX;
+      const screenY = yOrig / escY;
+      let left = screenX - (size / 2);
+      let top = screenY - size - 35;
+
+      if (left < 5) left = 5;
+      if (left + size > wrapBox.clientWidth - 5) left = wrapBox.clientWidth - size - 5;
+      if (top < 5) top = screenY + 35;
+
+      cvLupa.style.left = left + 'px';
+      cvLupa.style.top = top + 'px';
+
+      ctxL.clearRect(0, 0, size, size);
+      ctxL.save();
+      ctxL.beginPath();
+      ctxL.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
+      ctxL.clip();
+
+      ctxL.fillStyle = '#000';
+      ctxL.fillRect(0, 0, size, size);
+
+      const zoom = 2.8;
+      const cropW = (size / zoom) * escX;
+      const cropH = (size / zoom) * escY;
+
+      ctxL.drawImage(
+        imgFuente,
+        xOrig - cropW / 2, yOrig - cropH / 2, cropW, cropH,
+        0, 0, size, size
+      );
+
+      ctxL.strokeStyle = '#f8fafc';
+      ctxL.lineWidth = 1.5;
+      ctxL.beginPath();
+      ctxL.moveTo(size / 2 - 14, size / 2);
+      ctxL.lineTo(size / 2 - 3, size / 2);
+      ctxL.moveTo(size / 2 + 3, size / 2);
+      ctxL.lineTo(size / 2 + 14, size / 2);
+      ctxL.moveTo(size / 2, size / 2 - 14);
+      ctxL.lineTo(size / 2, size / 2 - 3);
+      ctxL.moveTo(size / 2, size / 2 + 3);
+      ctxL.lineTo(size / 2, size / 2 + 14);
+      ctxL.stroke();
+
+      ctxL.fillStyle = '#ef4444';
+      ctxL.beginPath();
+      ctxL.arc(size / 2, size / 2, 2.5, 0, Math.PI * 2);
+      ctxL.fill();
+
+      ctxL.restore();
+    }
+
+    // ==========================================================
+    // 1. FOTOGRAMETRÍA BILATERAL (8 VISTAS CON DATAURL)
+    // ==========================================================
+    const datos8Vistas = {
+      der: {
+        posterior: { titulo: "Pie Derecho - Vista Posterior", img: null, puntos: [], grados: null, dataUrl: null },
+        medial:    { titulo: "Pie Derecho - Vista Medial", img: null, puntos: [], grados: null, dataUrl: null },
+        lateral:   { titulo: "Pie Derecho - Vista Lateral", img: null, puntos: [], grados: null, dataUrl: null },
+        anterior:  { titulo: "Pie Derecho - Vista Anterior", img: null, puntos: [], grados: null, dataUrl: null }
+      },
+      izq: {
+        posterior: { titulo: "Pie Izquierdo - Vista Posterior", img: null, puntos: [], grados: null, dataUrl: null },
+        medial:    { titulo: "Pie Izquierdo - Vista Medial", img: null, puntos: [], grados: null, dataUrl: null },
+        lateral:   { titulo: "Pie Izquierdo - Vista Lateral", img: null, puntos: [], grados: null, dataUrl: null },
+        anterior:  { titulo: "Pie Izquierdo - Vista Anterior", img: null, puntos: [], grados: null, dataUrl: null }
+      }
+    };
+
+    let pieActivo = 'der';
+    let planoActivo = 'posterior';
+    let dragPost = null;
+
+    const cvPost = document.getElementById('cvPostural');
+    const ctxPost = cvPost.getContext('2d');
+    const boxPost = document.getElementById('boxPostural');
+    const lupaPost = document.getElementById('lupaPostural');
+    const filePost = document.getElementById('filePostural');
+    const msgVacioP = document.getElementById('msgVacioPostural');
+
+    document.getElementById('btnPieDer').addEventListener('click', () => {
+      pieActivo = 'der';
+      document.getElementById('btnPieDer').classList.add('active');
+      document.getElementById('btnPieIzq').classList.remove('active');
+      actualizarPantallaPostural();
+    });
+
+    document.getElementById('btnPieIzq').addEventListener('click', () => {
+      pieActivo = 'izq';
+      document.getElementById('btnPieIzq').classList.add('active');
+      document.getElementById('btnPieDer').classList.remove('active');
+      actualizarPantallaPostural();
+    });
+
+    document.querySelectorAll('.subtab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.subtab-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        planoActivo = btn.getAttribute('data-vista');
+        actualizarPantallaPostural();
+      });
+    });
+
+    function actualizarPantallaPostural() {
+      const v = datos8Vistas[pieActivo][planoActivo];
+      filePost.value = '';
+      document.getElementById('txtTituloVista').innerText = v.titulo;
+
+      document.querySelectorAll('.subtab-btn').forEach(b => {
+        const k = b.getAttribute('data-vista');
+        if (datos8Vistas[pieActivo][k].grados !== null) b.classList.add('ready');
+        else b.classList.remove('ready');
+      });
+
+      if (v.img) {
+        msgVacioP.style.display = 'none';
+        cvPost.style.display = 'block';
+        cvPost.width = v.img.width;
+        cvPost.height = v.img.height;
+        document.getElementById('txtBadgeVista').innerHTML = "<span style='color:#4ade80;'>Cargada</span>";
+        dibujarPostural();
+        
+        if (v.puntos.length === 3) {
+          calcularAnguloPostural();
+        } else {
+          document.getElementById('panelResPostural').style.display = 'none';
+          document.getElementById('txtGuiaPostural').innerHTML = `Marcá ${3 - v.puntos.length} punto(s) para completar.`;
+        }
+      } else {
+        msgVacioP.style.display = 'block';
+        cvPost.style.display = 'none';
+        document.getElementById('txtBadgeVista').innerHTML = "<span style='color:#94a3b8;'>Sin foto</span>";
+        document.getElementById('panelResPostural').style.display = 'none';
+        document.getElementById('txtGuiaPostural').innerHTML = "Cargá una foto para esta vista anatómica.";
+      }
+    }
+
+    filePost.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        const image = new Image();
+        image.onload = () => {
+          datos8Vistas[pieActivo][planoActivo].img = image;
+          datos8Vistas[pieActivo][planoActivo].puntos = [];
+          datos8Vistas[pieActivo][planoActivo].grados = null;
+          datos8Vistas[pieActivo][planoActivo].dataUrl = null;
+          document.getElementById(`res-${pieActivo}-${planoActivo}`).innerText = '-';
+          actualizarPantallaPostural();
+        };
+        image.src = evt.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+
+    cvPost.addEventListener('pointerdown', (e) => {
+      const v = datos8Vistas[pieActivo][planoActivo];
+      if (!v.img) return;
+
+      const rect = cvPost.getBoundingClientRect();
+      const escX = cvPost.width / rect.width;
+      const escY = cvPost.height / rect.height;
+      const x = (e.clientX - rect.left) * escX;
+      const y = (e.clientY - rect.top) * escY;
+
+      const tolerancia = cvPost.width * 0.08;
+      let idx = v.puntos.findIndex(p => Math.hypot(p.x - x, p.y - y) < tolerancia);
+
+      if (idx !== -1) {
+        dragPost = idx;
+      } else if (v.puntos.length < 3) {
+        v.puntos.push({ x, y });
+        dragPost = v.puntos.length - 1;
+      }
+
+      if (dragPost !== null) {
+        v.puntos[dragPost] = { x, y };
+        dibujarPostural();
+        dibujarLupaCanvas(lupaPost, v.img, x, y, boxPost, escX, escY);
+        if (v.puntos.length === 3) calcularAnguloPostural();
+      }
+    });
+
+    cvPost.addEventListener('pointermove', (e) => {
+      const v = datos8Vistas[pieActivo][planoActivo];
+      if (dragPost === null || !v.img) return;
+
+      const rect = cvPost.getBoundingClientRect();
+      const escX = cvPost.width / rect.width;
+      const escY = cvPost.height / rect.height;
+      const x = (e.clientX - rect.left) * escX;
+      const y = (e.clientY - rect.top) * escY;
+
+      v.puntos[dragPost] = { x, y };
+      dibujarPostural();
+      dibujarLupaCanvas(lupaPost, v.img, x, y, boxPost, escX, escY);
+      if (v.puntos.length === 3) calcularAnguloPostural();
+    });
+
+    window.addEventListener('pointerup', () => {
+      if (dragPost !== null) {
+        dragPost = null;
+        lupaPost.style.display = 'none';
+      }
+    });
+
+    function dibujarPostural() {
+      const v = datos8Vistas[pieActivo][planoActivo];
+      if (!v.img) return;
+
+      ctxPost.clearRect(0, 0, cvPost.width, cvPost.height);
+      ctxPost.drawImage(v.img, 0, 0);
+
+      if (v.puntos.length >= 2) trazarLinea(ctxPost, v.puntos[0], v.puntos[1], '#38bdf8', cvPost.width * 0.007);
+      if (v.puntos.length === 3) {
+        trazarLinea(ctxPost, v.puntos[1], v.puntos[2], '#38bdf8', cvPost.width * 0.007);
+        dibujarArco(ctxPost, v.puntos[1], v.puntos[0], v.puntos[2], cvPost.width * 0.06);
+      }
+
+      v.puntos.forEach((p, idx) => {
+        ctxPost.fillStyle = idx === 1 ? '#ef4444' : '#38bdf8';
+        ctxPost.beginPath();
+        ctxPost.arc(p.x, p.y, cvPost.width * 0.018, 0, Math.PI * 2);
+        ctxPost.fill();
+        ctxPost.strokeStyle = '#ffffff';
+        ctxPost.lineWidth = cvPost.width * 0.004;
+        ctxPost.stroke();
+      });
+    }
+
+    function trazarLinea(ctx, p1, p2, color, grosor) {
+      ctx.strokeStyle = color;
+      ctx.lineWidth = grosor;
+      ctx.beginPath();
+      ctx.moveTo(p1.x, p1.y);
+      ctx.lineTo(p2.x, p2.y);
+      ctx.stroke();
+    }
+
+    function dibujarArco(ctx, v, p1, p2, radio) {
+      const a1 = Math.atan2(p1.y - v.y, p1.x - v.x);
+      const a2 = Math.atan2(p2.y - v.y, p2.x - v.x);
+      ctx.strokeStyle = '#facc15';
+      ctx.lineWidth = cvPost.width * 0.005;
+      ctx.beginPath();
+      ctx.arc(v.x, v.y, radio, a1, a2);
+      ctx.stroke();
+    }
+
+    function calcularAnguloPostural() {
+      const v = datos8Vistas[pieActivo][planoActivo];
+      const p1 = v.puntos[0], vert = v.puntos[1], p2 = v.puntos[2];
+      const v1 = { x: p1.x - vert.x, y: p1.y - vert.y };
+      const v2 = { x: p2.x - vert.x, y: p2.y - vert.y };
+      const dot = v1.x * v2.x + v1.y * v2.y;
+      const rad = Math.acos(Math.max(-1, Math.min(1, dot / (Math.hypot(v1.x, v1.y) * Math.hypot(v2.x, v2.y)))));
+      const grados = (rad * (180 / Math.PI)).toFixed(1);
+
+      v.grados = grados;
+      v.dataUrl = cvPost.toDataURL('image/jpeg', 0.85);
+
+      document.getElementById('valGradosP').innerText = grados + "°";
+      document.getElementById('valSuplP').innerText = (180 - grados).toFixed(1) + "°";
+      document.getElementById('panelResPostural').style.display = 'block';
+
+      document.getElementById(`res-${pieActivo}-${planoActivo}`).innerText = grados + "°";
+      document.querySelector(`[data-vista="${planoActivo}"]`).classList.add('ready');
+    }
+
+    document.getElementById('btnBorrarPuntosP').addEventListener('click', () => {
+      const v = datos8Vistas[pieActivo][planoActivo];
+      v.puntos = [];
+      v.grados = null;
+      v.dataUrl = null;
+      document.getElementById(`res-${pieActivo}-${planoActivo}`).innerText = '-';
+      document.querySelector(`[data-vista="${planoActivo}"]`).classList.remove('ready');
+      dibujarPostural();
+      document.getElementById('panelResPostural').style.display = 'none';
+      document.getElementById('txtGuiaPostural').innerHTML = "Tocá la pantalla para marcar el primer punto.";
+    });
+
+    // ==========================================================
+    // 2. HERNÁNDEZ CORVO BILATERAL (CON DATAURL)
+    // ==========================================================
+    const datosHCBilateral = {
+      der: { img: null, puntos: [], resultado: null, dataUrl: null },
+      izq: { img: null, puntos: [], resultado: null, dataUrl: null }
+    };
+    let pieHCActivo = 'der';
+    let dragHuella = null;
+
+    const cvHuella = document.getElementById('cvHuella');
+    const ctxHuella = cvHuella.getContext('2d');
+    const boxHuella = document.getElementById('boxHuella');
+    const lupaHuella = document.getElementById('lupaHuella');
+    const fileHuella = document.getElementById('fileHuella');
+    const msgVacioH = document.getElementById('msgVacioHuella');
+
+    document.getElementById('btnHCDer').addEventListener('click', () => {
+      pieHCActivo = 'der';
+      document.getElementById('btnHCDer').classList.add('active');
+      document.getElementById('btnHCIzq').classList.remove('active');
+      actualizarPantallaHC();
+    });
+
+    document.getElementById('btnHCIzq').addEventListener('click', () => {
+      pieHCActivo = 'izq';
+      document.getElementById('btnHCIzq').classList.add('active');
+      document.getElementById('btnHCDer').classList.remove('active');
+      actualizarPantallaHC();
+    });
+
+    function actualizarPantallaHC() {
+      const h = datosHCBilateral[pieHCActivo];
+      fileHuella.value = '';
+      document.getElementById('txtTituloHC').innerText = pieHCActivo === 'der' ? "Plantigrafía Pie Derecho" : "Plantigrafía Pie Izquierdo";
+
+      if (h.img) {
+        msgVacioH.style.display = 'none';
+        cvHuella.style.display = 'block';
+        cvHuella.width = h.img.width;
+        cvHuella.height = h.img.height;
+        document.getElementById('txtBadgeHC').innerHTML = "<span style='color:#4ade80;'>Cargada</span>";
+        redibujarHuella();
+
+        if (h.puntos.length === 4) {
+          calcularResultadoHC();
+        } else {
+          document.getElementById('panelResHuella').style.display = 'none';
+          document.getElementById('txtGuiaHuella').innerHTML = `Marcá ${4 - h.puntos.length} punto(s) para completar.`;
+        }
+      } else {
+        msgVacioH.style.display = 'block';
+        cvHuella.style.display = 'none';
+        document.getElementById('txtBadgeHC').innerHTML = "<span style='color:#94a3b8;'>Sin foto</span>";
+        document.getElementById('panelResHuella').style.display = 'none';
+        document.getElementById('txtGuiaHuella').innerHTML = "Cargá la huella para marcar.";
+      }
+    }
+
+    fileHuella.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        const image = new Image();
+        image.onload = () => {
+          datosHCBilateral[pieHCActivo].img = image;
+          datosHCBilateral[pieHCActivo].puntos = [];
+          datosHCBilateral[pieHCActivo].resultado = null;
+          datosHCBilateral[pieHCActivo].dataUrl = null;
+          document.getElementById(`resHC-${pieHCActivo}-porc`).innerText = '-';
+          document.getElementById(`resHC-${pieHCActivo}-diag`).innerText = '-';
+          actualizarPantallaHC();
+        };
+        image.src = evt.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+
+    cvHuella.addEventListener('pointerdown', (e) => {
+      const h = datosHCBilateral[pieHCActivo];
+      if (!h.img) return;
+
+      const rect = cvHuella.getBoundingClientRect();
+      const escX = cvHuella.width / rect.width;
+      const escY = cvHuella.height / rect.height;
+      const x = (e.clientX - rect.left) * escX;
+      const y = (e.clientY - rect.top) * escY;
+
+      const tolerancia = cvHuella.width * 0.08;
+      let idx = h.puntos.findIndex(p => Math.hypot(p.x - x, p.y - y) < tolerancia);
+
+      if (idx !== -1) {
+        dragHuella = idx;
+      } else if (h.puntos.length < 4) {
+        h.puntos.push({ x, y });
+        dragHuella = h.puntos.length - 1;
+      }
+
+      if (dragHuella !== null) {
+        h.puntos[dragHuella] = { x, y };
+        redibujarHuella();
+        dibujarLupaCanvas(lupaHuella, h.img, x, y, boxHuella, escX, escY);
+        if (h.puntos.length === 4) calcularResultadoHC();
+      }
+    });
+
+    cvHuella.addEventListener('pointermove', (e) => {
+      const h = datosHCBilateral[pieHCActivo];
+      if (dragHuella === null || !h.img) return;
+
+      const rect = cvHuella.getBoundingClientRect();
+      const escX = cvHuella.width / rect.width;
+      const escY = cvHuella.height / rect.height;
+      const x = (e.clientX - rect.left) * escX;
+      const y = (e.clientY - rect.top) * escY;
+
+      h.puntos[dragHuella] = { x, y };
+      redibujarHuella();
+      dibujarLupaCanvas(lupaHuella, h.img, x, y, boxHuella, escX, escY);
+      if (h.puntos.length === 4) calcularResultadoHC();
+    });
+
+    window.addEventListener('pointerup', () => {
+      if (dragHuella !== null) {
+        dragHuella = null;
+        lupaHuella.style.display = 'none';
+      }
+    });
+
+    function redibujarHuella() {
+      const h = datosHCBilateral[pieHCActivo];
+      if (!h.img) return;
+
+      ctxHuella.clearRect(0, 0, cvHuella.width, cvHuella.height);
+      ctxHuella.drawImage(h.img, 0, 0);
+
+      if (h.puntos.length >= 2) trazarLineaHC(h.puntos[0], h.puntos[1], '#38bdf8', 'X');
+      if (h.puntos.length === 4) trazarLineaHC(h.puntos[2], h.puntos[3], '#ef4444', 'Y');
+
+      h.puntos.forEach((p, idx) => {
+        ctxHuella.fillStyle = idx < 2 ? '#38bdf8' : '#ef4444';
+        ctxHuella.beginPath();
+        ctxHuella.arc(p.x, p.y, cvHuella.width * 0.018, 0, Math.PI * 2);
+        ctxHuella.fill();
+        ctxHuella.strokeStyle = '#ffffff';
+        ctxHuella.lineWidth = cvHuella.width * 0.004;
+        ctxHuella.stroke();
+      });
+    }
+
+    function trazarLineaHC(p1, p2, color, etiqueta) {
+      ctxHuella.strokeStyle = color;
+      ctxHuella.lineWidth = cvHuella.width * 0.008;
+      ctxHuella.beginPath();
+      ctxHuella.moveTo(p1.x, p1.y);
+      ctxHuella.lineTo(p2.x, p2.y);
+      ctxHuella.stroke();
+      ctxHuella.fillStyle = color;
+      ctxHuella.font = `bold ${cvHuella.width * 0.045}px sans-serif`;
+      ctxHuella.fillText(etiqueta, (p1.x + p2.x) / 2, (p1.y + p2.y) / 2 - 10);
+    }
+
+    function calcularResultadoHC() {
+      const h = datosHCBilateral[pieHCActivo];
+      const distX = Math.hypot(h.puntos[1].x - h.puntos[0].x, h.puntos[1].y - h.puntos[0].y);
+      const distY = Math.hypot(h.puntos[3].x - h.puntos[2].x, h.puntos[3].y - h.puntos[2].y);
+      const porcX = ((distX - distY) / distX) * 100;
+
+      let diagnostico = "";
+      if (porcX < 35) diagnostico = "Pie Plano";
+      else if (porcX < 40) diagnostico = "Pie Plano / Normal";
+      else if (porcX < 55) diagnostico = "Pie Normal";
+      else if (porcX < 60) diagnostico = "Pie Normal / Cavo";
+      else if (porcX < 75) diagnostico = "Pie Cavo";
+      else if (porcX < 85) diagnostico = "Pie Cavo Fuerte";
+      else diagnostico = "Pie Cavo Extremo";
+
+      h.resultado = {
+        distX: distX.toFixed(1),
+        distY: distY.toFixed(1),
+        porcX: porcX.toFixed(2),
+        diagnostico: diagnostico
+      };
+      h.dataUrl = cvHuella.toDataURL('image/jpeg', 0.85);
+
+      document.getElementById('valX').innerText = distX.toFixed(1) + " px";
+      document.getElementById('valY').innerText = distY.toFixed(1) + " px";
+      document.getElementById('valPorc').innerText = porcX.toFixed(2) + "%";
+      document.getElementById('valDiag').innerText = diagnostico;
+      document.getElementById('panelResHuella').style.display = 'block';
+
+      document.getElementById(`resHC-${pieHCActivo}-porc`).innerText = porcX.toFixed(1) + "%";
+      document.getElementById(`resHC-${pieHCActivo}-diag`).innerText = diagnostico;
+    }
+
+    document.getElementById('btnBorrarHuella').addEventListener('click', () => {
+      const h = datosHCBilateral[pieHCActivo];
+      h.puntos = [];
+      h.resultado = null;
+      h.dataUrl = null;
+      document.getElementById(`resHC-${pieHCActivo}-porc`).innerText = '-';
+      document.getElementById(`resHC-${pieHCActivo}-diag`).innerText = '-';
+      redibujarHuella();
+      document.getElementById('panelResHuella').style.display = 'none';
+      document.getElementById('txtGuiaHuella').innerHTML = "Tocá los 2 extremos del metatarso (X).";
+    });
+
+    // ==========================================================
+    // 3. FPI-6 BILATERAL
+    // ==========================================================
+    const listaFPI = [
+      { id: 1, titulo: "1. Cabeza del Astrágalo", desc: "Palpación en plano frontal (Inversión / Eversión)" },
+      { id: 2, titulo: "2. Curvatura Maleolar", desc: "Curvas sobre y bajo el maléolo externo" },
+      { id: 3, titulo: "3. Posición Calcáneo", desc: "Plano frontal (Varo / Valgo)" },
+      { id: 4, titulo: "4. Astrágalo-Escafoides", desc: "Abultamiento en borde medial" },
+      { id: 5, titulo: "5. Arco Longitudinal", desc: "Altura del arco medial" },
+      { id: 6, titulo: "6. Abducción Antepié", desc: "Dedos visibles desde atrás" }
+    ];
+
+    const scoresFPIBilateral = {
+      der: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 },
+      izq: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 }
+    };
+    let pieFPIActivo = 'der';
+
+    document.getElementById('btnFPIDer').addEventListener('click', () => {
+      pieFPIActivo = 'der';
+      document.getElementById('btnFPIDer').classList.add('active');
+      document.getElementById('btnFPIIzq').classList.remove('active');
+      document.getElementById('txtTotalPieFPI').innerText = "PUNTAJE DERECHO";
+      renderizarFPI();
+    });
+
+    document.getElementById('btnFPIIzq').addEventListener('click', () => {
+      pieFPIActivo = 'izq';
+      document.getElementById('btnFPIIzq').classList.add('active');
+      document.getElementById('btnFPIDer').classList.remove('active');
+      document.getElementById('txtTotalPieFPI').innerText = "PUNTAJE IZQUIERDO";
+      renderizarFPI();
+    });
+
+    function renderizarFPI() {
+      const cont = document.getElementById('contenedorFPI');
+      const sc = scoresFPIBilateral[pieFPIActivo];
+
+      cont.innerHTML = listaFPI.map(item => `
+        <div class="fpi-card">
+          <div style="font-weight:bold; font-size:0.9rem;">${item.titulo}</div>
+          <div style="font-size:0.75rem; color:#94a3b8;">${item.desc}</div>
+          <div class="btn-group">
+            ${[-2, -1, 0, 1, 2].map(val => `
+              <button class="score-btn ${sc[item.id] === val ? 'selected' : ''}" 
+                data-id="${item.id}" data-val="${val}">
+                ${val > 0 ? '+' + val : val}
+              </button>
+            `).join('')}
+          </div>
+        </div>
+      `).join('');
+
+      cont.querySelectorAll('.score-btn').forEach(b => {
+        b.addEventListener('click', () => {
+          scoresFPIBilateral[pieFPIActivo][b.getAttribute('data-id')] = parseInt(b.getAttribute('data-val'));
+          renderizarFPI();
+          calcularTotalFPI();
+        });
+      });
+
+      calcularTotalFPI();
+    }
+
+    function calcularTotalFPI() {
+      const sc = scoresFPIBilateral[pieFPIActivo];
+      const total = Object.values(sc).reduce((a, b) => a + b, 0);
+      document.getElementById('fpiTotal').innerText = (total > 0 ? '+' : '') + total;
+
+      let est = "Pie Neutro";
+      if (total <= -1) est = "Pie Supinado";
+      else if (total >= 0 && total <= 5) est = "Pie Neutro";
+      else if (total >= 6 && total <= 9) est = "Pie Pronado";
+      else est = "Pie Altamente Pronado";
+
+      document.getElementById('fpiDiag').innerText = est;
+    }
+
+    renderizarFPI();
+
+    // ==========================================================
+    // 4. GENERACIÓN DE PDF (PÁGINA 1: DATOS | PÁGINA 2: FOTOS)
+    // ==========================================================
+    document.getElementById('btnDescargarPDF').addEventListener('click', () => {
+      try {
+        if (!window.jspdf) {
+          alert("Verificá tu conexión a internet para generar el PDF.");
+          return;
+        }
+
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF('p', 'mm', 'a4');
+        const pac = document.getElementById('pacNombre').value || "Paciente";
+        const obs = document.getElementById('pacObs').value || "Sin observaciones.";
+        const fecha = new Date().toLocaleDateString('es-AR');
+
+        // ======================= PÁGINA 1 =======================
+        doc.setFillColor(15, 23, 42);
+        doc.rect(0, 0, 210, 22, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(13);
+        doc.setFont('helvetica', 'bold');
+        doc.text("INFORME DE EVALUACIÓN POSTURAL Y BIOMECÁNICA", 105, 12, { align: 'center' });
+        doc.setFontSize(8.5);
+        doc.setFont('helvetica', 'normal');
+        doc.text("Kinesiología & Fisioterapia - Análisis Comparativo Bilateral", 105, 17, { align: 'center' });
+
+        doc.setTextColor(30, 41, 59);
+        doc.setFontSize(9.5);
+        doc.setFont('helvetica', 'bold');
+        doc.text("Paciente: ", 14, 30);
+        doc.setFont('helvetica', 'normal');
+        doc.text(pac, 32, 30);
+        doc.setFont('helvetica', 'bold');
+        doc.text("Fecha: ", 150, 30);
+        doc.setFont('helvetica', 'normal');
+        doc.text(fecha, 165, 30);
+
+        doc.setDrawColor(203, 213, 225);
+        doc.line(14, 34, 196, 34);
+
+        // 1. Fotogrametría Angular
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(10.5);
+        doc.setTextColor(2, 132, 199);
+        doc.text("1. FOTOGRAMETRÍA ANGULAR COMPARATIVA (8 VISTAS)", 14, 42);
+
+        doc.setFontSize(8.5);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(51, 65, 85);
+        doc.text("Vista Anatómica", 16, 50);
+        doc.text("Pie Derecho", 110, 50);
+        doc.text("Pie Izquierdo", 155, 50);
+
+        doc.setFont('helvetica', 'normal');
+        const planos = [
+          { k: 'posterior', n: 'Posterior (Aquiles/Calcáneo)' },
+          { k: 'medial',    n: 'Medial (Arco Longitudinal)' },
+          { k: 'lateral',   n: 'Lateral (Borde Externo)' },
+          { k: 'anterior',  n: 'Anterior (Antepié/Dedos)' }
+        ];
+
+        let curY = 56;
+        planos.forEach(p => {
+          const gDer = datos8Vistas.der[p.k].grados ? datos8Vistas.der[p.k].grados + '°' : 'N/E';
+          const gIzq = datos8Vistas.izq[p.k].grados ? datos8Vistas.izq[p.k].grados + '°' : 'N/E';
+
+          doc.text(`• ${p.n}`, 16, curY);
+          doc.text(gDer, 110, curY);
+          doc.text(gIzq, 155, curY);
+          curY += 6;
+        });
+
+        // 2. Hernández Corvo
+        doc.setDrawColor(203, 213, 225);
+        doc.line(14, curY + 2, 196, curY + 2);
+        curY += 8;
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(10.5);
+        doc.setTextColor(2, 132, 199);
+        doc.text("2. PLANTIGRAFÍA (MÉTODO HERNÁNDEZ CORVO)", 14, curY);
+        curY += 7;
+
+        doc.setFontSize(8.5);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(51, 65, 85);
+
+        const resD = datosHCBilateral.der.resultado;
+        const resI = datosHCBilateral.izq.resultado;
+
+        const txtHCDer = resD ? `%X: ${resD.porcX}% | ${resD.diagnostico}` : "Sin mediciones";
+        const txtHCIzq = resI ? `%X: ${resI.porcX}% | ${resI.diagnostico}` : "Sin mediciones";
+
+        doc.text(`• Pie Derecho:   ${txtHCDer}`, 16, curY);
+        curY += 5;
+        doc.text(`• Pie Izquierdo: ${txtHCIzq}`, 16, curY);
+        curY += 7;
+
+        // 3. FPI-6
+        doc.setDrawColor(203, 213, 225);
+        doc.line(14, curY, 196, curY);
+        curY += 6;
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(10.5);
+        doc.setTextColor(2, 132, 199);
+        doc.text("3. FOOT POSTURE INDEX BILATERAL (FPI-6)", 14, curY);
+        curY += 7;
+
+        const totDer = Object.values(scoresFPIBilateral.der).reduce((a, b) => a + b, 0);
+        const totIzq = Object.values(scoresFPIBilateral.izq).reduce((a, b) => a + b, 0);
+
+        function clasifFPI(val) {
+          if (val <= -1) return "Pie Supinado";
+          if (val >= 0 && val <= 5) return "Pie Neutro";
+          if (val >= 6 && val <= 9) return "Pie Pronado";
+          return "Pie Altamente Pronado";
+        }
+
+        doc.setFontSize(8.5);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(51, 65, 85);
+        doc.text(`• FPI-6 Derecho:   ${totDer > 0 ? '+' + totDer : totDer}  (${clasifFPI(totDer)})`, 16, curY);
+        curY += 5;
+        doc.text(`• FPI-6 Izquierdo: ${totIzq > 0 ? '+' + totIzq : totIzq}  (${clasifFPI(totIzq)})`, 16, curY);
+        curY += 8;
+
+        // Observaciones
+        doc.setDrawColor(203, 213, 225);
+        doc.line(14, curY, 196, curY);
+        curY += 6;
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(10);
+        doc.setTextColor(2, 132, 199);
+        doc.text("OBSERVACIONES / CONDUCTA TERAPÉUTICA:", 14, curY);
+        curY += 6;
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8.5);
+        doc.setTextColor(51, 65, 85);
+        doc.text(obs, 14, curY, { maxWidth: 180 });
+
+        doc.line(130, 268, 185, 268);
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'bold');
+        doc.text("Firma y Sello Profesional", 157, 273, { align: 'center' });
+
+        // ======================= PÁGINA 2: ANEXO DE IMÁGENES =======================
+        doc.addPage();
+
+        doc.setFillColor(15, 23, 42);
+        doc.rect(0, 0, 210, 16, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(11);
+        doc.setFont('helvetica', 'bold');
+        doc.text("ANEXO FOTOGRÁFICO Y REGISTRO CLÍNICO DE IMÁGENES", 105, 11, { align: 'center' });
+
+        // --- BLOQUE 1: FOTOS POSTURALES PIE DERECHO (4 VISTAS) ---
+        doc.setFontSize(9.5);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(2, 132, 199);
+        doc.text("FOTOGRAMETRÍA: PIE DERECHO", 14, 25);
+
+        let xPos = 14;
+        let yPos = 28;
+        const imgW = 42;
+        const imgH = 42;
+
+        planos.forEach(p => {
+          const item = datos8Vistas.der[p.k];
+          doc.setFontSize(7);
+          doc.setFont('helvetica', 'normal');
+          doc.setTextColor(71, 85, 105);
+          doc.text(p.k.toUpperCase(), xPos + (imgW / 2), yPos + 3, { align: 'center' });
+
+          if (item.dataUrl) {
+            try {
+              doc.addImage(item.dataUrl, 'JPEG', xPos, yPos + 4, imgW, imgH);
+            } catch(e) {}
+          } else {
+            doc.setDrawColor(203, 213, 225);
+            doc.rect(xPos, yPos + 4, imgW, imgH);
+            doc.text("Sin foto", xPos + (imgW / 2), yPos + 25, { align: 'center' });
+          }
+          xPos += 46;
+        });
+
+        // --- BLOQUE 2: FOTOS POSTURALES PIE IZQUIERDO (4 VISTAS) ---
+        yPos = 82;
+        xPos = 14;
+        doc.setFontSize(9.5);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(2, 132, 199);
+        doc.text("FOTOGRAMETRÍA: PIE IZQUIERDO", 14, yPos);
+
+        yPos += 3;
+        planos.forEach(p => {
+          const item = datos8Vistas.izq[p.k];
+          doc.setFontSize(7);
+          doc.setFont('helvetica', 'normal');
+          doc.setTextColor(71, 85, 105);
+          doc.text(p.k.toUpperCase(), xPos + (imgW / 2), yPos + 3, { align: 'center' });
+
+          if (item.dataUrl) {
+            try {
+              doc.addImage(item.dataUrl, 'JPEG', xPos, yPos + 4, imgW, imgH);
+            } catch(e) {}
+          } else {
+            doc.setDrawColor(203, 213, 225);
+            doc.rect(xPos, yPos + 4, imgW, imgH);
+            doc.text("Sin foto", xPos + (imgW / 2), yPos + 25, { align: 'center' });
+          }
+          xPos += 46;
+        });
+
+        // --- BLOQUE 3: PLANTIGRAFÍAS HERNÁNDEZ CORVO (DER E IZQ) ---
+        yPos = 140;
+        doc.setDrawColor(203, 213, 225);
+        doc.line(14, yPos, 196, yPos);
+        yPos += 7;
+
+        doc.setFontSize(9.5);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(2, 132, 199);
+        doc.text("PLANTIGRAFÍAS Y TRAZADOS (HERNÁNDEZ CORVO)", 14, yPos);
+
+        yPos += 4;
+        const huellaW = 55;
+        const huellaH = 75;
+
+        // Huella Derecha
+        doc.setFontSize(7.5);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(71, 85, 105);
+        doc.text("HUELLA DERECHA", 42, yPos + 3, { align: 'center' });
+        if (datosHCBilateral.der.dataUrl) {
+          try {
+            doc.addImage(datosHCBilateral.der.dataUrl, 'JPEG', 14, yPos + 5, huellaW, huellaH);
+          } catch(e) {}
+        } else {
+          doc.setDrawColor(203, 213, 225);
+          doc.rect(14, yPos + 5, huellaW, huellaH);
+          doc.text("Sin huella", 42, yPos + 40, { align: 'center' });
+        }
+
+        // Huella Izquierda
+        doc.text("HUELLA IZQUIERDA", 142, yPos + 3, { align: 'center' });
+        if (datosHCBilateral.izq.dataUrl) {
+          try {
+            doc.addImage(datosHCBilateral.izq.dataUrl, 'JPEG', 114, yPos + 5, huellaW, huellaH);
+          } catch(e) {}
+        } else {
+          doc.setDrawColor(203, 213, 225);
+          doc.rect(114, yPos + 5, huellaW, huellaH);
+          doc.text("Sin huella", 142, yPos + 40, { align: 'center' });
+        }
+
+        // --- DESCARGA / VISUALIZACIÓN ---
+        const pdfDataUri = doc.output('datauristring');
+        const blob = doc.output('blob');
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Reporte_${pac.replace(/\s+/g, '_')}_Bilateral_Fotos.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+
+        // Respaldo para el visor del celular
+        const win = window.open();
+        if (win) {
+          win.document.write('<iframe src="' + pdfDataUri + '" frameborder="0" style="border:0; top:0px; left:0px; bottom:0px; right:0px; width:100%; height:100%;" allowfullscreen></iframe>');
+        } else {
+          window.location.href = pdfDataUri;
+        }
+
+      } catch (err) {
+        alert("Error al armar el reporte: " + err.message);
+      }
+    });
+  </script>
+</body>
+</html>
